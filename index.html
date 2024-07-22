@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Third Eye</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh; 
+    }
+    .container {
+      width: 90%; 
+      max-width: 600px;
+      background-color: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      text-align: center; 
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+      font-size: 3rem; 
+    }
+    button {
+      margin: 20px auto; 
+      padding: 1.5rem 3rem; 
+      font-size: 2.5rem; 
+      cursor: pointer;
+      border: none;
+      border-radius: 25px; 
+      text-transform: uppercase;
+      font-weight: bold;
+      width: 100%; 
+      max-width: 400px; 
+      height: 200px; 
+      background-color: #4CAF50; 
+      color: white;
+      transition: background-color 0.3s ease; 
+    }
+    button:hover {
+      background-color: #45a049; 
+    }
+    button:active {
+      background-color: #357a38; 
+    }
+    #askAgainButton {
+      background-color: #2196F3;
+    }
+    #askAgainButton:hover {
+      background-color: #1976D2; 
+    }
+    #askAgainButton:active {
+      background-color: #0D47A1; 
+    }
+    #clearButton {
+      background-color: #f44336; 
+    }
+    #clearButton:hover {
+      background-color: #d32f2f; 
+    }
+    #clearButton:active {
+      background-color: #b71c1c; 
+    }
+    #output {
+      margin-top: 20px;
+      text-align: left;
+      font-size: 1.6rem; 
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    p {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>THIRD EYE</h1>
+    <button id="scanButton">Scan NFC Tag</button>
+    <button id="askAgainButton" style="display: none;">Ask Again</button> 
+    <button id="clearButton">Clear</button>
+    <div id="output"></div>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const scanButton = document.getElementById('scanButton');
+    const askAgainButton = document.getElementById('askAgainButton');
+    const clearButton = document.getElementById('clearButton');
+    let isFirstTime = true;
+    let nfcData = '';
+
+    // Function to handle NFC scanning
+    async function scanNfcTag() {
+      clearOutput(); // Reset state before scanning new NFC tag
+      displayDescription('Please scan the NFC Tag'); // Display initial message
+
+      speak('Please scan the NFC Tag');
+
+      try {
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        ndef.onreading = (event) => {
+          const message = event.message.records[0].data;
+          const decoder = new TextDecoder();
+          nfcData = decoder.decode(message);
+          const description = nfcData.split(',')[0];
+          displayDescription(`<span style="font-size: 2.4rem;">${description}</span>`);
+          speak(`This is "${description}"`); 
+
+          console.log('NFC data:', nfcData); // Debugging log
+          displayDescription(`NFC data: ${nfcData}`); // Displaying NFC data for debugging
+
+          // Send NFC data to the server
+          fetch('http://web.sfc.keio.ac.jp/~t22517aa/ubiqnfc/api/nfc-scan', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ nfcData })
+          })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.text();
+          })
+          .then(data => {
+            console.log('Server response:', data); // Debugging log
+            displayDescription(`Server response: ${data}`); // Displaying server response for debugging
+          })
+          .catch(error => {
+            console.error('Fetch error:', error); // Debugging log
+            displayDescription(`Fetch error: ${error.message}`); // Displaying error message for debugging
+          });
+
+          isFirstTime = false; 
+          askAgainButton.style.display = 'inline'; 
+          promptForSpecificInfo();
+        };
+      } catch (error) {
+        console.error('Error scanning NFC tag:', error);
+        displayDescription(`Error scanning NFC tag: ${error.message}`); // Displaying error for debugging
+      }
+    }
+
+    function displayDescription(text) {
+      output.innerHTML += `<p>${text}</p>`;
+    }
+
+    function promptForSpecificInfo() {
+      const options = 'What do you want to know? Height, weight, color, material, or price?';
+
+      speak(options);
+
+      output.innerHTML += `<p>${options}</p>`;
+
+      setTimeout(() => {
+        const specificInfo = prompt(options); 
+        if (specificInfo) {
+          const extraInfo = getSpecificInfo(specificInfo);
+          output.innerHTML += `<p>${extraInfo}</p>`;
+          speak(extraInfo); // Speak the chosen information
+        }
+      }, 6000); 
+    }
+
+    function clearOutput() {
+      output.innerHTML = '';
+      askAgainButton.style.display = 'none'; 
+      isFirstTime = true; 
+    }
+
+    function getSpecificInfo(request) {
+      const fields = nfcData.split(',');
+      const infoMap = {
+        height: fields[1].trim(),
+        weight: fields[2].trim(),
+        color: fields[3].trim(),
+        material: fields[4].trim(),
+        price: fields[5].trim()
+      };
+
+      // Normalize and check if request includes key terms
+      const lowerCaseRequest = request.toLowerCase();
+      let response = '';
+
+      if (lowerCaseRequest.includes('price') || lowerCaseRequest.includes('cost') || lowerCaseRequest.includes('fee')) {
+        response += `Price: ${infoMap.price}\n`;
+      }
+      if (lowerCaseRequest.includes('height') || lowerCaseRequest.includes('tall') || lowerCaseRequest.includes('short')) {
+        response += `Height: ${infoMap.height}\n`;
+      }
+      if (lowerCaseRequest.includes('weight') || lowerCaseRequest.includes('heavy')) {
+        response += `Weight: ${infoMap.weight}\n`;
+      }
+      if (lowerCaseRequest.includes('color') || lowerCaseRequest.includes('colour') || lowerCaseRequest.includes('shade')) {
+        response += `Color: ${infoMap.color}\n`;
+      }
+      if (lowerCaseRequest.includes('material') || lowerCaseRequest.includes('made of')) {
+        response += `Material: ${infoMap.material}\n`;
+      }
+
+      return response.trim() || 'Information not available';
+    }
+
+    function speak(text) {
+      const speech = new SpeechSynthesisUtterance(text);
+      speechSynthesis.speak(speech);
+    }
+
+    scanButton.addEventListener('click', scanNfcTag);
+    askAgainButton.addEventListener('click', promptForSpecificInfo); 
+    clearButton.addEventListener('click', clearOutput); 
+  </script>
+</body>
+</html>
