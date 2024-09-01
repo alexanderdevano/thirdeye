@@ -36,3 +36,10 @@ Integrates the ChatGPT API to handle complex and inferential queries. The chatbo
 ### 4. Middleware and Networking
 - Middleware: Utilizes CORS, Body Parser (JSON), and static file serving for efficient data processing and communication.
 - Networking: Uses HTTP (TCP/IP) for client-server communication, with ngrok providing a secure tunnel for external access.
+
+## Usage
+1. Launch the "Third Eye" app on an NFC-enabled Android device.
+2. Scan the NFC tags attached to products.
+3. Listen to the product information provided audibly through the TTS engine.
+4. Use the device's native STT capabilities to ask questions or give commands.
+5. For more complex inquiries, interact with the AI-powered chatbot.
