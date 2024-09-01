@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Third Eye</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f0f0f0;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh; 
+    }
+    .container {
+      width: 90%; 
+      max-width: 600px;
+      background-color: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      text-align: center; 
+    }
+    h1 {
+      color: #333;
+      margin-top: 0;
+      font-size: 3rem; 
+    }
+    button {
+      margin: 10px auto; 
+      padding: 5rem 5rem; 
+      font-size: 2.5rem; 
+      cursor: pointer;
+      border: none;
+      border-radius: 25px; 
+      text-transform: uppercase;
+      font-weight: bold;
+      width: 100%; 
+      max-width: 400px; 
+      background-color: #4CAF50; 
+      color: white;
+      transition: background-color 0.3s ease; 
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:active {
+      background-color: #357a38;
+    }
+    #askAgainButton {
+      background-color: #2196F3;
+    }
+    #askAgainButton:hover {
+      background-color: #1976D2;
+    }
+    #askAgainButton:active {
+      background-color: #0D47A1;
+    }
+    #clearButton {
+      background-color: #f44336;
+    }
+    #clearButton:hover {
+      background-color: #d32f2f;
+    }
+    #clearButton:active {
+      background-color: #b71c1c;
+    }
+    #chatbotButton {
+      background-color: #ff8205;
+    }
+    #chatbotButton:hover {
+      background-color: #c04700;
+    }
+    #chatbotButton:active {
+      background-color: #793908;
+    }
+    #chat {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 20px;
+    }
+    input[type="text"] {
+      padding: 30px;
+      font-size: 2.5rem;
+      border: 3px solid #000000;
+      border-radius: 30px;
+      margin-bottom: 10px; 
+    }
+    #output, #output2 {
+      margin-top: 20px;
+      text-align: left;
+      font-size: 1.6rem; 
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    p {
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>THIRD EYE</h1>
+    <button id="scanButton">Scan NFC Tag</button>
+    <button id="askAgainButton" style="display: none;">Ask Again</button> 
+    <button id="clearButton">Clear</button>
+    <div id="output"></div>
+    <div id="chat">
+      <input type="text" id="userInput" placeholder="Ask a question...">
+      <button id="chatbotButton" onclick="sendQuestion()">Ask Chatbot</button>
+    </div>
+    <div id="output2"></div>
+  </div>
+
+  <script>
+    const output = document.getElementById('output');
+    const output2 = document.getElementById('output2');
+    const scanButton = document.getElementById('scanButton');
+    const askAgainButton = document.getElementById('askAgainButton');
+    const clearButton = document.getElementById('clearButton');
+    let ndef = null; 
+    let nfcData = '';
+    let isFirstTime = true;
+
+    async function scanNfcTag() {
+      clearOutput(); 
+      displayDescription('Please scan the NFC Tag'); 
+      speak('Please scan the NFC Tag');
+
+      try {
+        ndef = new NDEFReader();
+        await ndef.scan();
+        ndef.onreading = (event) => {
+          const message = event.message.records[0];
+          if (message.recordType === "text") {
+            const decoder = new TextDecoder();
+            nfcData = decoder.decode(message.data);
+            const description = nfcData.split(',')[0];
+            displayDescription(`<span style="font-size: 2.4rem;">${description}</span>`);
+            speak(`This is "${description}"`);
+ 
+            fetch('/api/nfc-scan', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ nfcData })
+            });
+
+            isFirstTime = false; 
+            askAgainButton.style.display = 'inline';
+            promptForSpecificInfo();
+          } else {
+            displayDescription('Unsupported NFC tag format');
+          }
+        };
+      } catch (error) {
+        displayDescription(`Error scanning NFC tag: ${error.message}`);
+      }
+    }
+
+    function displayDescription(text) {
+      output.innerHTML = `<p>${text}</p>`;
+    }
+
+    function displayDescription2(text) {
+      output2.innerHTML = `<p>${text}</p>`;
+    }
+
+    function promptForSpecificInfo() {
+      const options = 'What do you want to know? Height, weight, color, material, or price?';
+
+      speak(options);
+
+      output.innerHTML += `<p>${options}</p>`;
+
+      setTimeout(() => {
+        const specificInfo = prompt(options);
+        if (specificInfo) {
+          fetch('/api/query', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ query: specificInfo })
+          })
+          .then(response => response.json())
+          .then(data => {
+            const extraInfo = data.message;
+            output.innerHTML += `<p>${extraInfo}</p>`;
+            speak(extraInfo);
+          })
+          .catch(error => {
+            output.innerHTML += `<p>Error: ${error.message}</p>`;
+          });
+        }
+      }, 6000);
+    }
+
+    function clearOutput() {
+      output.innerHTML = '';
+      output2.innerHTML = '';
+      askAgainButton.style.display = 'none';
+      isFirstTime = true;
+
+      // Reset ndef instance
+      if (ndef) {
+        ndef.onreading = null;
+        ndef = null;
+      }
+    }
+
+    function speak(text) {
+      const speech = new SpeechSynthesisUtterance(text);
+      speechSynthesis.speak(speech);
+    }
+    
+    function sendQuestion() {
+      const input = document.getElementById('userInput');
+      const question = input.value;
+      output2.innerHTML += `<p>User: ${question}</p>`
+      input.value = '';  
+
+      fetch('/api/ask', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ question })
+      })
+      .then(response => response.json())
+      .then(data => {
+        const answer = data.answer;  
+        output2.innerHTML += `<p>Chatbot: ${answer}</p>`;
+        speak(answer);
+      })
+      .catch(error => {
+        output2.innerHTML += `<p>Please enter your question in the chatbox above the button</p>`;
+        speak(`Please enter your question in the chatbox above the button`);
+      });
+    }
+    
+    scanButton.addEventListener('click', scanNfcTag);
+    clearButton.addEventListener('click', clearOutput);
+    askAgainButton.addEventListener('click', promptForSpecificInfo);
+  </script>
+</body>
+</html>
