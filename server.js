@@ -7,20 +7,16 @@ const OpenAI = require('openai');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Initialize OpenAI API with the environment variable
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// Store NFC data globally for this example
 let nfcData = '';
 
-// API route for NFC scan
 app.post('/api/nfc-scan', (req, res) => {
   nfcData = req.body.nfcData;
   if (!nfcData) {
@@ -31,7 +27,6 @@ app.post('/api/nfc-scan', (req, res) => {
   res.status(200).send({ message: `NFC tag scanned successfully: ${description}` });
 });
 
-// API route for user queries based on NFC data
 app.post('/api/query', (req, res) => {
   const { query } = req.body;
   if (!query) {
@@ -82,7 +77,6 @@ app.post('/api/query', (req, res) => {
   res.status(200).send({ message: response.trim() });
 });
 
-// API route for interacting with ChatGPT
 app.post('/api/ask', async (req, res) => {
   const { question } = req.body;
   if (!question) {
